@@ -1,4 +1,4 @@
-# Trabalho Prático 1 TDD — Curadoria de Dados Científicos
+# Trabalho Prático — Curadoria de Dados Científicos
 
 Deduplicação de nomes de autores em repositórios de informações científicas,
 desenvolvida com **TDD**.
@@ -94,5 +94,18 @@ projeto (não estão no `requirements.txt`). Para reproduzir:
 python3 -m pip install pytest-xdist pytest-randomly
 python3 -m pytest -n auto         # em paralelo (pytest-xdist)
 python3 -m pytest                 # ordem aleatória (pytest-randomly)
+```
 
+## Etapa 2 — Refatoração
 
+Sobre o código da Etapa 1 foram aplicadas três operações de refatoração, cada
+uma em seu próprio commit:
+
+| Operação | Alvo | Resultado |
+|----------|------|-----------|
+| Extrair Método | `_classificar()` | função `_classificar_token()` |
+| Substituir Método por Objeto-Método | `equivalentes()` | classe `_ComparadorEquivalencia` |
+| Extrair Classe | módulo `normalizacao` | classe `Nome` |
+
+Os testes não foram alterados e continuam passando (`33 passed`), comprovando
+que o comportamento foi preservado.
