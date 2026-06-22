@@ -23,7 +23,6 @@ def _reordenar_virgula(nome: str) -> str:
     return nome
 
 
-# --- MÉTODO EXTRAÍDO de `_classificar` ---
 def _classificar_token(bruto: str):
     limpo = bruto.strip(".,")
     if not limpo:
@@ -58,32 +57,45 @@ def _classificar(nome: str):
     return cheios, iniciais, particulas
 
 
+# --- OBJETO-METODO criado a partir de `equivalentes` ---
+class _ComparadorEquivalencia:
+
+    def __init__(self, nome_a: str, nome_b: str):
+        self.cheios_a, self.ini_a, _ = _classificar(nome_a)
+        self.cheios_b, self.ini_b, _ = _classificar(nome_b)
+
+    def calcular(self) -> bool:
+        if len(self.cheios_a) + len(self.ini_a) != len(self.cheios_b) + len(self.ini_b):
+            return False
+
+        self._separar_comuns()
+        if not self._casar_extensos(self.resto_a, self.ini_b):
+            return False
+        if not self._casar_extensos(self.resto_b, self.ini_a):
+            return False
+
+        return +self.ini_a == +self.ini_b
+
+    def _separar_comuns(self):
+        cnt_a, cnt_b = Counter(self.cheios_a), Counter(self.cheios_b)
+        comuns = cnt_a & cnt_b
+        self.resto_a = list((cnt_a - comuns).elements())
+        self.resto_b = list((cnt_b - comuns).elements())
+        self.ini_a = Counter(self.ini_a)
+        self.ini_b = Counter(self.ini_b)
+
+    @staticmethod
+    def _casar_extensos(restos, iniciais) -> bool:
+        for palavra in restos:
+            if iniciais[palavra[0]] > 0:
+                iniciais[palavra[0]] -= 1
+            else:
+                return False
+        return True
+
+
 def equivalentes(nome_a: str, nome_b: str) -> bool:
-    cheios_a, ini_a, _ = _classificar(nome_a)
-    cheios_b, ini_b, _ = _classificar(nome_b)
-
-    if len(cheios_a) + len(ini_a) != len(cheios_b) + len(ini_b):
-        return False
-
-    cnt_a, cnt_b = Counter(cheios_a), Counter(cheios_b)
-    comuns = cnt_a & cnt_b
-    resto_a = list((cnt_a - comuns).elements())
-    resto_b = list((cnt_b - comuns).elements())
-
-    ini_a, ini_b = Counter(ini_a), Counter(ini_b)
-
-    for palavra in resto_a:
-        if ini_b[palavra[0]] > 0:
-            ini_b[palavra[0]] -= 1
-        else:
-            return False
-    for palavra in resto_b:
-        if ini_a[palavra[0]] > 0:
-            ini_a[palavra[0]] -= 1
-        else:
-            return False
-
-    return +ini_a == +ini_b
+    return _ComparadorEquivalencia(nome_a, nome_b).calcular()
 
 
 def _pontuacao(nome: str):
