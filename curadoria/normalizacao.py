@@ -2,7 +2,6 @@ import unicodedata
 from collections import Counter
 
 PARTICULAS = {"de", "da", "do", "dos", "das", "e", "di", "du"}
-
 _APOSTROFOS = ["`", "´", "’", "‘", "'"]
 
 
@@ -24,27 +23,37 @@ def _reordenar_virgula(nome: str) -> str:
     return nome
 
 
+# --- MÉTODO EXTRAÍDO de `_classificar` ---
+def _classificar_token(bruto: str):
+    limpo = bruto.strip(".,")
+    if not limpo:
+        return ("vazio", None)
+
+    base = remover_acentos(limpo).lower()
+
+    if limpo.isupper() and len(limpo) >= 2 and base not in PARTICULAS:
+        return ("grupo_iniciais", [c.lower() for c in limpo if c.isalpha()])
+    if base in PARTICULAS:
+        return ("particula", base)
+    if len(limpo) == 1:
+        return ("inicial", base)
+    return ("cheio", base)
+
+
 def _classificar(nome: str):
-    nome = normalizar_apostrofo(nome)
-    nome = _reordenar_virgula(nome)
+    nome = _reordenar_virgula(normalizar_apostrofo(nome))
 
     cheios, iniciais, particulas = [], [], []
     for bruto in nome.split():
-        limpo = bruto.strip(".,")
-        if not limpo:
-            continue
-        base = remover_acentos(limpo).lower()
-
-        if limpo.isupper() and len(limpo) >= 2 and base not in PARTICULAS:
-            iniciais.extend(letra.lower() for letra in limpo if letra.isalpha())
-            continue
-
-        if base in PARTICULAS:
-            particulas.append(base)
-        elif len(limpo) == 1:
-            iniciais.append(base)
-        else:
-            cheios.append(base)
+        categoria, valor = _classificar_token(bruto)
+        if categoria == "grupo_iniciais":
+            iniciais.extend(valor)
+        elif categoria == "inicial":
+            iniciais.append(valor)
+        elif categoria == "particula":
+            particulas.append(valor)
+        elif categoria == "cheio":
+            cheios.append(valor)
 
     return cheios, iniciais, particulas
 
@@ -73,6 +82,7 @@ def equivalentes(nome_a: str, nome_b: str) -> bool:
             ini_a[palavra[0]] -= 1
         else:
             return False
+
     return +ini_a == +ini_b
 
 
@@ -85,14 +95,12 @@ def _pontuacao(nome: str):
 def forma_canonica(variantes) -> str:
     variantes = [v for v in variantes if v and v.strip()]
     if not variantes:
-        raise ValueError("lista de variantes vazia")
+        raise ValueError("Lista de variantes vazia.")
 
     referencia = variantes[0]
     for v in variantes[1:]:
         if not equivalentes(referencia, v):
-            raise ValueError(
-                f"'{v}' nao é equivalente a '{referencia}'."
-            )
+            raise ValueError(f"'{v}' não é equivalente a '{referencia}'.")
 
     melhor = max(variantes, key=_pontuacao)
     return normalizar_apostrofo(melhor).strip()
@@ -100,8 +108,6 @@ def forma_canonica(variantes) -> str:
 
 def tem_grupo_iniciais(nome: str) -> bool:
     for bruto in normalizar_apostrofo(nome).split():
-        limpo = bruto.strip(".,")
-        base = remover_acentos(limpo).lower()
-        if limpo.isupper() and len(limpo) >= 2 and base not in PARTICULAS:
+        if _classificar_token(bruto)[0] == "grupo_iniciais":
             return True
     return False
