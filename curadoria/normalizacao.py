@@ -2,8 +2,8 @@ import unicodedata
 from collections import Counter
 
 PARTICULAS = {"de", "da", "do", "dos", "das", "e", "di", "du"}
-_APOSTROFOS = ["`", "´", "’", "‘", "'"]
 
+_APOSTROFOS = ["`", "´", "’", "‘", "'"]
 
 def remover_acentos(texto: str) -> str:
     nfkd = unicodedata.normalize("NFKD", texto)
@@ -23,6 +23,7 @@ def _reordenar_virgula(nome: str) -> str:
     return nome
 
 
+# --- Refatoração 1: Extrair Método (extraído de `_classificar`) ---
 def _classificar_token(bruto: str):
     limpo = bruto.strip(".,")
     if not limpo:
@@ -57,15 +58,35 @@ def _classificar(nome: str):
     return cheios, iniciais, particulas
 
 
-# --- OBJETO-METODO criado a partir de `equivalentes` ---
+# --- Refatoração 3: Extrair Classe (extraída do módulo `normalizacao`) ---
+class Nome:
+    def __init__(self, bruto: str):
+        self.bruto = bruto
+        self.cheios, self.iniciais, self.particulas = _classificar(bruto)
+
+    def total_componentes(self) -> int:
+        return len(self.cheios) + len(self.iniciais)
+
+    def pontuacao(self):
+        n_acentos = sum(
+            1 for ch in self.bruto if ch.isalpha() and remover_acentos(ch) != ch
+        )
+        return (len(self.cheios), len(self.particulas), n_acentos, len(self.bruto))
+
+    def tem_grupo_iniciais(self) -> bool:
+        tokens = normalizar_apostrofo(self.bruto).split()
+        return any(_classificar_token(t)[0] == "grupo_iniciais" for t in tokens)
+
+
+# --- Refatoração 2: Substituir Método por Objeto-Método (de `equivalentes`) ---
 class _ComparadorEquivalencia:
 
     def __init__(self, nome_a: str, nome_b: str):
-        self.cheios_a, self.ini_a, _ = _classificar(nome_a)
-        self.cheios_b, self.ini_b, _ = _classificar(nome_b)
+        self.a = Nome(nome_a)
+        self.b = Nome(nome_b)
 
     def calcular(self) -> bool:
-        if len(self.cheios_a) + len(self.ini_a) != len(self.cheios_b) + len(self.ini_b):
+        if self.a.total_componentes() != self.b.total_componentes():
             return False
 
         self._separar_comuns()
@@ -77,12 +98,12 @@ class _ComparadorEquivalencia:
         return +self.ini_a == +self.ini_b
 
     def _separar_comuns(self):
-        cnt_a, cnt_b = Counter(self.cheios_a), Counter(self.cheios_b)
+        cnt_a, cnt_b = Counter(self.a.cheios), Counter(self.b.cheios)
         comuns = cnt_a & cnt_b
         self.resto_a = list((cnt_a - comuns).elements())
         self.resto_b = list((cnt_b - comuns).elements())
-        self.ini_a = Counter(self.ini_a)
-        self.ini_b = Counter(self.ini_b)
+        self.ini_a = Counter(self.a.iniciais)
+        self.ini_b = Counter(self.b.iniciais)
 
     @staticmethod
     def _casar_extensos(restos, iniciais) -> bool:
@@ -98,12 +119,6 @@ def equivalentes(nome_a: str, nome_b: str) -> bool:
     return _ComparadorEquivalencia(nome_a, nome_b).calcular()
 
 
-def _pontuacao(nome: str):
-    cheios, _iniciais, particulas = _classificar(nome)
-    n_acentos = sum(1 for ch in nome if ch.isalpha() and remover_acentos(ch) != ch)
-    return (len(cheios), len(particulas), n_acentos, len(nome))
-
-
 def forma_canonica(variantes) -> str:
     variantes = [v for v in variantes if v and v.strip()]
     if not variantes:
@@ -114,12 +129,5 @@ def forma_canonica(variantes) -> str:
         if not equivalentes(referencia, v):
             raise ValueError(f"'{v}' não é equivalente a '{referencia}'.")
 
-    melhor = max(variantes, key=_pontuacao)
+    melhor = max(variantes, key=lambda v: Nome(v).pontuacao())
     return normalizar_apostrofo(melhor).strip()
-
-
-def tem_grupo_iniciais(nome: str) -> bool:
-    for bruto in normalizar_apostrofo(nome).split():
-        if _classificar_token(bruto)[0] == "grupo_iniciais":
-            return True
-    return False
